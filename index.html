@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced IoT Smart Parking Control Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-6">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-slate-700 pb-4 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-emerald-400 tracking-tight">🚗 IoT Smart Parking Management Suite</h1>
+                <p class="text-sm text-slate-400 mt-1">System Node Status: <span id="connection-status" class="text-amber-400 font-semibold animate-pulse">Connecting to Cloud Broker...</span></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="alarm-banner" class="hidden bg-rose-500/20 text-rose-400 px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border border-rose-500/30 animate-bounce">
+                    ⚠️ System Alert: Entry Denied (Full)
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 shadow-xl">
+                        <span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Available Slots</span>
+                        <p id="available-count" class="text-4xl font-extrabold text-emerald-400 mt-2">3</p>
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 shadow-xl">
+                        <span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Occupied Slots</span>
+                        <p id="occupied-count" class="text-4xl font-extrabold text-rose-400 mt-2">0</p>
+                    </div>
+                    <div id="gate-card" class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 shadow-xl transition-all duration-300">
+                        <span class="text-slate-400 text-xs font-medium uppercase tracking-wider">Physical Entry Gate</span>
+                        <div class="flex items-center gap-3 mt-2">
+                            <span id="gate-icon" class="text-3xl">🔒</span>
+                            <div>
+                                <p id="gate-status" class="text-xl font-bold text-slate-300">CLOSED</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/40 shadow-xl">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Real-Time Floor Plan Map</h2>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div id="card-slot1" class="bg-slate-800 border border-slate-700 p-6 rounded-xl text-center shadow-md">
+                            <h3 class="font-bold text-slate-400 text-xs uppercase">Bay A1</h3>
+                            <div id="icon-slot1" class="text-4xl my-4">🟢</div>
+                            <span id="status-slot1" class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] font-bold uppercase">Initializing</span>
+                        </div>
+                        <div id="card-slot2" class="bg-slate-800 border border-slate-700 p-6 rounded-xl text-center shadow-md">
+                            <h3 class="font-bold text-slate-400 text-xs uppercase">Bay A2</h3>
+                            <div id="icon-slot2" class="text-4xl my-4">🟢</div>
+                            <span id="status-slot2" class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] font-bold uppercase">Initializing</span>
+                        </div>
+                        <div id="card-slot3" class="bg-slate-800 border border-slate-700 p-6 rounded-xl text-center shadow-md">
+                            <h3 class="font-bold text-slate-400 text-xs uppercase">Bay A3</h3>
+                            <div id="icon-slot3" class="text-4xl my-4">🟢</div>
+                            <span id="status-slot3" class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-[10px] font-bold uppercase">Initializing</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/60 shadow-xl">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Smart Allocation Reservation System</h2>
+                    <p class="text-xs text-slate-400 mb-4">The cloud management sub-system automatically detects and signs your vehicle into the nearest vacant bay location.</p>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex-1 bg-slate-900 border border-slate-700/60 p-3 rounded-xl text-sm min-w-[240px]">
+                            <span class="text-slate-500 text-xs block font-medium">Last Ticket Assigned:</span>
+                            <span id="assignment-display" class="font-bold text-amber-400 text-base">No active allocation issued</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="autoBookSlot()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm shadow-lg shadow-amber-500/10 transition-colors">
+                                Auto-Allocate Bay
+                            </button>
+                            <button onclick="clearAllReservations()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-4 py-3 rounded-xl text-sm transition-colors">
+                                Release Bookings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/60 shadow-xl">
+                    <div class="h-48 w-full"><canvas id="occupancyChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/60 shadow-xl flex flex-col max-h-[770px]">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 pb-2 border-b border-slate-700">Telemetry Audit Log</h2>
+                <div id="log-container" class="flex-1 overflow-y-auto space-y-2 text-xs font-mono"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+        const slotsState = { slot1: "free", slot2: "free", slot3: "free" };
+        
+        const ctx = document.getElementById('occupancyChart').getContext('2d');
+        const chartData = { labels: [], datasets: [{ label: 'Occupancy', data: [], borderColor: '#f43f5e', tension: 0.3 }] };
+        const occupancyChart = new Chart(ctx, { type: 'line', data: chartData, options: { responsive: true, maintainAspectRatio: false } });
+
+        function addLog(msg, type) {
+            const container = document.getElementById('log-container');
+            const timeStr = new Date().toTimeString().split(' ')[0];
+            const logEntry = document.createElement('div');
+            let color = type === 'success' ? 'text-emerald-400' : type === 'danger' ? 'text-rose-400' : type === 'warn' ? 'text-amber-400' : 'text-slate-300';
+            logEntry.className = `p-1 bg-slate-900/40 rounded ${color}`;
+            logEntry.innerHTML = `<span>[${timeStr}]</span> ${msg}`;
+            container.appendChild(logEntry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        client.on('connect', () => {
+            document.getElementById('connection-status').innerText = "CONNECTED TO CLOUD DATA BROKER";
+            document.getElementById('connection-status').className = "text-emerald-400 font-bold text-xs";
+            addLog("Handshake established with MQTT cluster.", "success");
+            
+            client.subscribe('idp/parking/slot1');
+            client.subscribe('idp/parking/slot2');
+            client.subscribe('idp/parking/slot3');
+            client.subscribe('idp/parking/gate');
+        });
+
+        client.on('message', (topic, message) => {
+            const payload = message.toString();
+            
+            if (topic === "idp/parking/gate") {
+                const gateCard = document.getElementById('gate-card');
+                const gateStatus = document.getElementById('gate-status');
+                const gateIcon = document.getElementById('gate-icon');
+                
+                if (payload === "open") {
+                    gateCard.className = "bg-emerald-950/20 border border-emerald-500/40 p-5 rounded-2xl shadow-xl transition-all duration-300";
+                    gateStatus.innerText = "OPEN";
+                    gateStatus.className = "text-xl font-bold text-emerald-400";
+                    gateIcon.innerText = "🔓";
+                    addLog("🚧 Barrier Sensor Tripped: Physical Gate Opened.", "success");
+                } else {
+                    gateCard.className = "bg-slate-800 p-5 rounded-2xl border border-slate-700/60 shadow-xl transition-all duration-300";
+                    gateStatus.innerText = "CLOSED";
+                    gateStatus.className = "text-xl font-bold text-slate-300";
+                    gateIcon.innerText = "🔒";
+                    addLog("🔒 Physical Servo Gate Closed and Secured.", "info");
+                }
+                return;
+            }
+
+            let slotId = topic.includes("slot1") ? "slot1" : topic.includes("slot2") ? "slot2" : topic.includes("slot3") ? "slot3" : "";
+            if (slotId && slotsState[slotId] !== payload) {
+                slotsState[slotId] = payload;
+                updateUI(slotId, payload);
+            }
+        });
+
+        // NEW: AUTOMATIC ALLOCATION SYSTEM LOGIC
+        function autoBookSlot() {
+            let targetSlot = null;
+
+            // Loop and look for the first free slot
+            if (slotsState.slot1 === "free") targetSlot = "slot1";
+            else if (slotsState.slot2 === "free") targetSlot = "slot2";
+            else if (slotsState.slot3 === "free") targetSlot = "slot3";
+
+            if (targetSlot === null) {
+                document.getElementById('assignment-display').innerText = "Allocation Failed: All Bays Full!";
+                document.getElementById('assignment-display').className = "font-bold text-rose-400 text-base";
+                addLog("❌ Auto-allocation rejected: No empty or non-reserved parking bays found.", "danger");
+                return;
+            }
+
+            let num = targetSlot.charAt(4); // returns '1', '2', or '3'
+            client.publish(`idp/parking/reserve${num}`, "book");
+            
+            document.getElementById('assignment-display').innerText = `Assigned Successfully to: BAY A${num}`;
+            document.getElementById('assignment-display').className = "font-bold text-emerald-400 text-base";
+            addLog(`🎟️ Smart Routing Assigned Ticket: Reserved Bay A${num} via Cloud Channel.`, "warn");
+        }
+
+        function clearAllReservations() {
+            // Send release commands to all slots to wipe current reservation states
+            client.publish("idp/parking/reserve1", "release");
+            client.publish("idp/parking/reserve2", "release");
+            client.publish("idp/parking/reserve3", "release");
+            
+            document.getElementById('assignment-display').innerText = "All digital reservations vacated";
+            document.getElementById('assignment-display').className = "font-bold text-slate-400 text-sm italic";
+            addLog("🔓 Global Reservation Flush Triggered: Clearing all holds.", "success");
+        }
+
+        function updateUI(slotId, status) {
+            const card = document.getElementById(`card-${slotId}`);
+            const icon = document.getElementById(`icon-${slotId}`);
+            const badge = document.getElementById(`status-${slotId}`);
+            const name = slotId.toUpperCase().replace("SLOT", "BAY A");
+
+            if (status === "occupied") {
+                card.className = "bg-rose-950/20 border border-rose-500/40 p-6 rounded-xl text-center shadow-lg";
+                icon.innerText = "🚗"; badge.innerText = "Occupied";
+                addLog(`${name} has been physically occupied.`, "danger");
+            } else if (status === "reserved") {
+                card.className = "bg-amber-950/20 border border-amber-500/40 p-6 rounded-xl text-center shadow-lg";
+                icon.innerText = "📅"; badge.innerText = "Reserved";
+                addLog(`${name} successfully locked by cloud system reservation.`, "warn");
+            } else {
+                card.className = "bg-emerald-950/20 border border-emerald-500/40 p-6 rounded-xl text-center shadow-lg";
+                icon.innerText = "🟢"; badge.innerText = "Available";
+                addLog(`${name} status is clear. Ready for assignment.`, "success");
+            }
+
+            const totalOcc = Object.values(slotsState).filter(val => val === "occupied").length;
+            const totalRes = Object.values(slotsState).filter(val => val === "reserved").length;
+            const totalAvail = 3 - (totalOcc + totalRes);
+            
+            document.getElementById('available-count').innerText = totalAvail;
+            document.getElementById('occupied-count').innerText = totalOcc;
+            document.getElementById('alarm-banner').className = totalAvail == 0 ? "bg-rose-500/20 text-rose-400 px-4 py-1.5 rounded-xl text-xs font-bold" : "hidden";
+
+            chartData.labels.push(new Date().toTimeString().split(' ')[0].substring(3));
+            chartData.datasets[0].data.push(totalOcc + totalRes);
+            if (chartData.labels.length > 6) { chartData.labels.shift(); chartData.datasets[0].data.shift(); }
+            occupancyChart.update();
+        }
+    </script>
+</body>
+</html>
